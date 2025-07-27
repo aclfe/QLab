@@ -1,77 +1,88 @@
-import sys
 from PyQt6.QtWidgets import (
-    QMainWindow, QApplication, QFileDialog,
-    QWidget, QHBoxLayout, QVBoxLayout, QTreeWidget, QTreeWidgetItem
+    QApplication,
+    QMainWindow,
+    QFileDialog,
+    QWidget,
+    QHBoxLayout,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QToolBar,
 )
-from PyQt6.QtGui import QPalette, QColor
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction
 from data_ingestion.csv_loader import load_csv
-from visualization.plot_widget import PlotWidget
-from visualization.plot_manager import PlotManager
+from visualization.chart_canvas import ChartCanvas
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("TimeSeries Analysis Window")
-        self._apply_dark_theme()
-        self.resize(1200, 800)
+        self.setWindowTitle("Time Series Analysis Framework")
+        self.setGeometry(50, 50, 1200, 600)
 
-        file_menu = self.menuBar().addMenu("File")
-        open_action = file_menu.addAction("Open CSV")
+        toolbar = QToolBar("Main Toolbar")
+        self.addToolBar(toolbar)
+        open_action = QAction("Open CSV", self)
         open_action.triggered.connect(self.open_csv)
+        toolbar.addAction(open_action)
 
-        container = QWidget()
         main_layout = QHBoxLayout()
-        container.setLayout(main_layout)
-        self.setCentralWidget(container)
 
         self.sidebar = QTreeWidget()
         self.sidebar.setHeaderHidden(True)
         self.sidebar.setFixedWidth(250)
-        for section, children in {
-            "Analysis": ["Summary", "Statistics"],
-            "Indicators": ["EMA", "RSI", "MACD"],
-            "Forecast": ["Prophet", "ARIMA"],
-            "Anomalies": ["IsolationForest", "Autoencoder"]
-        }.items():
+        sections = {
+            "Data View": ["Show Raw Data", "Show Summary"],
+            "Time Series Analysis": ["Rolling Mean", "Differencing", "Seasonal Decompose", "Autocorrelation"],
+            "Forecasting": ["ARIMA", "Prophet"],
+            "Anomaly Detection": ["Isolation Forest", "Z-Score"]
+        }
+        for section, methods in sections.items():
             parent = QTreeWidgetItem(self.sidebar, [section])
-            for child in children:
-                QTreeWidgetItem(parent, [child])
+            for m in methods:
+                QTreeWidgetItem(parent, [m])
             parent.setExpanded(False)
         self.sidebar.setStyleSheet(
-            "QTreeWidget { background-color: #111111; color: #FFFFFF; border: none; }"
-            "QTreeWidget::item { padding: 8px; }"
-            "QTreeWidget::item:selected { background-color: #333333; }"
+            "QTreeWidget { background-color: #2e2e2e; color: white; border: none; }"
+            "QTreeWidget::item { padding: 5px 10px; }"
+            "QTreeWidget::item:selected { background-color: #444444; }"
         )
+        self.sidebar.itemClicked.connect(self.on_sidebar_click)
+
+        self.canvas = ChartCanvas(self)
+
         main_layout.addWidget(self.sidebar)
+        main_layout.addWidget(self.canvas, stretch=1)
+        container = QWidget()
+        container.setLayout(main_layout)
+        self.setCentralWidget(container)
 
-        self.plot_widget = PlotWidget()
-        main_layout.addWidget(self.plot_widget, stretch=1)
-
-        self.plot_manager = PlotManager(self.plot_widget)
-
-    def _apply_dark_theme(self):
-        palette = QPalette()
-        palette.setColor(QPalette.ColorRole.Window, QColor("#000000"))
-        palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
-        palette.setColor(QPalette.ColorRole.Base, QColor("#222222"))
-        palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#333333"))
-        palette.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
-        palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
-        palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.white)
-        palette.setColor(QPalette.ColorRole.Button, QColor("#111111"))
-        palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.white)
-        self.setPalette(palette)
+        self.current_df = None
 
     def open_csv(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select CSV file", filter="CSV Files (*.csv)")
+        path, _ = QFileDialog.getOpenFileName(self, "Open CSV", "", "CSV Files (*.csv)")
         if path:
-            df = load_csv(path, date_col=None, index_col=None)
-            self.plot_manager.render(df)
+            df = load_csv(path)
+            self.current_df = df
+            self.canvas.plot_data(df)
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    def on_sidebar_click(self, item, column):
+        if not item.childCount():
+            method = item.text(0)
+            if self.current_df is None:
+                return
+            if method == "Rolling Mean":
+                df_roll = self.current_df.rolling(window=5).mean()
+                self.canvas.plot_data(df_roll)
+            elif method == "Differencing":
+                df_diff = self.current_df.diff().dropna()
+                self.canvas.plot_data(df_diff)
+            elif method == "Show Raw Data":
+                self.canvas.plot_table(self.current_df)
+            elif method == "Show Summary":
+                summary = self.current_df.describe()
+                self.canvas.plot_table(summary)
+
+if __name__ == '__main__':
+    app = QApplication([])
     window = MainWindow()
     window.show()
-    sys.exit(app.exec())
+    app.exec()

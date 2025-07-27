@@ -1,4 +1,4 @@
-# TimeSeries MVP
+# TimeSeries Analysis Framework
 
 PyQT6 to load and plot time-series data (CSV).
 
