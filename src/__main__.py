@@ -1,4 +1,4 @@
-from visualization.main_window import MainWindow
+from src.visualization.main_window import MainWindow
 from PyQt6.QtWidgets import QApplication
 import sys
 
