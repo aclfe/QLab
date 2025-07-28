@@ -27,7 +27,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Time Series Analysis Framework")
-        self.setGeometry(50, 50, 1200, 800)
+        self.setGeometry(50, 50, 1200, 600)
 
         toolbar = QToolBar("Main Toolbar")
         self.addToolBar(toolbar)

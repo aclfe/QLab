@@ -1,4 +1,4 @@
-# TimeSeries Analysis Framework
+# TimeSeries Analysis Software
 
 PyQT6 to load and plot time-series data (CSV).
 
