@@ -4,6 +4,7 @@ from matplotlib.figure import Figure
 import pandas as pd
 import numpy as np
 
+
 class ChartCanvas(FigureCanvas):
     def __init__(self, parent=None):
         self.fig = Figure(figsize=(12, 6), facecolor='#1e1e1e')
@@ -20,7 +21,7 @@ class ChartCanvas(FigureCanvas):
         self.mpl_connect('motion_notify_event', self._on_motion)
         self.mpl_connect('button_release_event', self._on_release)
 
-    def plot_data(self, df: pd.DataFrame, cols=None):
+    def plot_data(self, df: pd.DataFrame, cols=None, ci_lower: pd.Series | None = None, ci_upper: pd.Series | None = None):
         self.fig.clf()
         self.ax = self.fig.add_subplot(111)
         self._current_projection = None
@@ -30,13 +31,32 @@ class ChartCanvas(FigureCanvas):
 
         for col in cols:
             if col in df.columns:
-                self.ax.plot(df.index, df[col], label=col)
+                data = df[col]
+                if len(data.dropna()) > 0:
+                    if col == 'Forecast':
+                        self.ax.plot(data.index, data.values, label=col, color='yellow', linewidth=2)
+                    elif col == 'Anomaly':
+                        self.ax.scatter(data.index, data.values, label=col, color='red', marker='x', zorder=3)
+                    else:
+                        self.ax.plot(data.index, data.values, label=col)
+
+        if ci_lower is not None and ci_upper is not None:
+            try:
+                ci_l = pd.to_numeric(ci_lower, errors='coerce')
+                ci_u = pd.to_numeric(ci_upper, errors='coerce')
+                common_index = ci_l.index.intersection(ci_u.index)
+                ci_l = ci_l.loc[common_index]
+                ci_u = ci_u.loc[common_index]
+                if len(common_index) > 0:
+                    self.ax.fill_between(common_index, ci_l.values, ci_u.values, color='yellow', alpha=0.15, label='95% CI')
+            except Exception:
+                pass
 
         self._format_axes()
         self.draw()
 
-    def plot_table(self, df: pd.DataFrame):
 
+    def plot_table(self, df: pd.DataFrame):
         self.fig.clf()
         self.ax = None
 
@@ -67,7 +87,7 @@ class ChartCanvas(FigureCanvas):
 
             data1 = pd.to_numeric(df[col1], errors='coerce')
             data2 = pd.to_numeric(df[col2], errors='coerce')
-            times = df.index.astype(np.int64) // 10**9
+            times = df.index.astype(np.int64) // 10 ** 9
 
             mask = ~(data1.isna() | data2.isna())
             times = times[mask]
@@ -78,7 +98,7 @@ class ChartCanvas(FigureCanvas):
                 print("No valid data points for 3D plot")
                 return
 
-            max_points = 2000  
+            max_points = 2000
             if len(times) > max_points:
                 step = len(times) // max_points
                 times = times[::step]
@@ -90,27 +110,27 @@ class ChartCanvas(FigureCanvas):
                 norm_times = np.zeros_like(times, dtype=float)
             else:
                 norm_times = (times - times.min()) / time_range
-            
-            scatter = self.ax.scatter(times, data1, data2, 
-                                    c=norm_times,
-                                    cmap='plasma',
-                                    alpha=0.8,
-                                    s=50)
+
+            scatter = self.ax.scatter(times, data1, data2,
+                                      c=norm_times,
+                                      cmap='plasma',
+                                      alpha=0.8,
+                                      s=50)
 
             self.ax.set_xlabel('Time', fontsize=10, labelpad=10)
             self.ax.set_ylabel(col1, fontsize=10, labelpad=10)
             self.ax.set_zlabel(col2, fontsize=10, labelpad=10)
 
             num_ticks = 5
-            tick_indices = np.linspace(0, len(times)-1, num_ticks, dtype=int)
+            tick_indices = np.linspace(0, len(times) - 1, num_ticks, dtype=int)
             self.ax.set_xticks(times[tick_indices])
-            self.ax.set_xticklabels([pd.Timestamp(t * 10**9).strftime('%Y-%m-%d') 
-                                    for t in times[tick_indices]], rotation=45)
+            self.ax.set_xticklabels([pd.Timestamp(t * 10 ** 9).strftime('%Y-%m-%d')
+                                     for t in times[tick_indices]], rotation=45)
 
             cbar = self.fig.colorbar(scatter, label='Time Progress')
             cbar.ax.yaxis.label.set_color('white')
             cbar.ax.tick_params(colors='white')
-            
+
             self.ax.view_init(elev=20, azim=45)
 
             self._format_axes()
@@ -119,14 +139,14 @@ class ChartCanvas(FigureCanvas):
             print(f"Error creating 3D plot: {str(e)}")
             self._current_projection = None
             self.plot_data(df, [col1])
-        
+
         self._format_axes()
         self.draw()
 
     def _format_axes(self):
         if self.ax is None:
             return
-            
+
         self.ax.set_facecolor('#1e1e1e')
         if self._current_projection == '3d':
             self.ax.set_title('3D View', color='white')
@@ -139,14 +159,16 @@ class ChartCanvas(FigureCanvas):
         else:
             self.ax.set_title('Line View', color='white')
             self.ax.tick_params(colors='white')
-            legend = self.ax.legend(facecolor='gray', edgecolor='white', labelcolor='white')
-            legend.get_frame().set_alpha(0.5)
+            handles, labels = self.ax.get_legend_handles_labels()
+            if labels:
+                legend = self.ax.legend(facecolor='gray', edgecolor='white', labelcolor='white')
+                legend.get_frame().set_alpha(0.5)
 
     def _on_scroll(self, event):
         base_scale = 1.2
         cur_xlim = self.ax.get_xlim()
         xdata = event.xdata or 0
-        scale_factor = base_scale if event.button == 'up' else 1/base_scale
+        scale_factor = base_scale if event.button == 'up' else 1 / base_scale
         new_width = (cur_xlim[1] - cur_xlim[0]) * scale_factor
         center = xdata
         left = center - new_width * ((center - cur_xlim[0]) / (cur_xlim[1] - cur_xlim[0]))
@@ -164,7 +186,7 @@ class ChartCanvas(FigureCanvas):
             dx = self._last_mouse_pos - event.x
             left, right = self.ax.get_xlim()
             scale = (right - left) / self.width()
-            self.ax.set_xlim(left + dx*scale, right + dx*scale)
+            self.ax.set_xlim(left + dx * scale, right + dx * scale)
             self._last_mouse_pos = event.x
             self.draw()
 

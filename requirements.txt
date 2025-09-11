@@ -2,3 +2,10 @@ PyQt6
 pandas
 matplotlib
 mplfinance
+statsmodels
+prophet
+scipy
+numpy>=1.22
+scikit-learn
+dateutil
+pathlib

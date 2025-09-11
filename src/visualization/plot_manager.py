@@ -15,6 +15,7 @@ def infer_data_type(df: pd.DataFrame) -> str:
     else:
         return 'generic'
 
+
 class PlotManager:
     def __init__(self, plot_widget):
         self.plot_widget = plot_widget
@@ -43,9 +44,10 @@ class PlotManager:
                 ax=ax,
                 volume=False,
                 datetime_format='%Y-%m-%d',
-                warn_too_much_data=len(ohlc)+1
+                warn_too_much_data=len(ohlc) + 1
             )
             ax.set_facecolor('#222222')
+
         self.plot_widget.plot(plot_candle)
 
     def _plot_sensor(self, df: pd.DataFrame):
@@ -58,6 +60,7 @@ class PlotManager:
                 anomalies = df[df['anomaly'] == 1]
                 ax.scatter(anomalies.index, anomalies.iloc[:, 0], color='red', label='Anomalies')
                 ax.legend()
+
         self.plot_widget.plot(plot_with_anomalies)
 
     def _plot_forecast(self, df: pd.DataFrame):
@@ -67,6 +70,7 @@ class PlotManager:
                 ax.fill_between(df.index, df['yhat_lower'], df['yhat_upper'], color='gray', alpha=0.3)
             ax.set_title("Forecast")
             ax.legend()
+
         self.plot_widget.plot(plot_forecast)
 
     def _plot_generic(self, df: pd.DataFrame):
