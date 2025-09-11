@@ -1,8 +1,8 @@
-from src .visualization .main_window import MainWindow 
-from PyQt6 .QtWidgets import QApplication 
-import sys 
+from src.visualization.main_window import MainWindow
+from PyQt6.QtWidgets import QApplication
+import sys
 
-if __name__ =="__main__":
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     main = MainWindow()
     main.show()
